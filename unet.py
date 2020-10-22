@@ -100,7 +100,7 @@ class unet():
             x = up(x)
             x = concatenate(inputs=[x,skip], axis=-1)
 
-        x = Conv2DTranspose(seg_classes,3,strides=2,padding='same')(x) # 1/2 -> 1
+        x = Conv2DTranspose(seg_classes,3,strides=2,padding='same',activation='softmax')(x) # 1/2 -> 1
         return x 
         
     def _cls_head(self, cls_out, finalAct):
