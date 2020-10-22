@@ -3,7 +3,7 @@ import argparse
 import tensorflow as tf
 from tensorflow.keras.utils import multi_gpu_model
 import tensorflow.keras.backend as K
-from tensorflow.keras.losses import kl_divergence, categorical_crossentropy
+from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.metrics import mse, MeanIoU
 from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras.models import Model
