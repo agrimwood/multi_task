@@ -10,7 +10,7 @@ from tensorflow.keras.utils import plot_model
 
 # %%
 class unet():
-    def __init__(self, net_type='MobileNetV2', trainable=False, batch_size=None, frames=10, lstm_size=256, num_classes=3, seg_classes=1,im_dimensions=[640,480,3]):
+    def __init__(self, net_type='MobileNetV2', trainable=False, batch_size=None, frames=10, lstm_size=256, num_classes=3, seg_classes=3,im_dimensions=[640,480,3]):
         self.net_type = net_type
         self.trainable = trainable
         self.batch_size = batch_size
@@ -100,7 +100,10 @@ class unet():
             x = up(x)
             x = concatenate(inputs=[x,skip], axis=-1)
 
-        x = Conv2DTranspose(seg_classes,3,strides=2,padding='same',activation='softmax')(x) # 1/2 -> 1
+        x = Conv2DTranspose(
+            seg_classes,3,strides=2,
+            padding='same',activation=None, name='segment_out'
+            )(x) # 1/2 -> 1
         return x 
         
     def _cls_head(self, cls_out, finalAct):
@@ -141,7 +144,7 @@ class unet():
         direction_out = Dense(num_classes, activation=finalAct, name=output_name)(x)
         return prostate_out, direction_out
 
-    def build_model(self, seg_classes=1, cls_act='softmax'):
+    def build_model(self, cls_act='softmax'):
         #specify upsampling blocks
         skip_stack = [
             self._upsample(512,3),  #1/32  

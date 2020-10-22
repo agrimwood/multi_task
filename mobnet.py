@@ -10,13 +10,14 @@ from tensorflow.keras.utils import plot_model
 
 # %%
 class LRASPP():
-    def __init__(self, net_type='MobileNetV2', trainable=True, batch_size=None, frames=10, lstm_size=256, num_classes=3, im_dimensions=[512,512,3]):
+    def __init__(self, net_type='MobileNetV2', trainable=False, batch_size=None, frames=10, lstm_size=256, num_classes=3, seg_classes=2, im_dimensions=[512,512,3]):
         self.net_type = net_type
         self.trainable = trainable
         self.batch_size = batch_size
         self.frames = frames
         self.lstm_size = lstm_size
         self.num_classes=num_classes
+        self.seg_classes=seg_classes
         
         ### set inputs
         seq_shape=[frames]
@@ -32,13 +33,13 @@ class LRASPP():
         ### set function params
         net_type=self.net_type
         trainable=self.trainable
-        batch_size=self.batch_size
-        frames=self.frames
-        lstm_size=self.lstm_size
-        num_classes=self.num_classes
+        #batch_size=self.batch_size
+        #frames=self.frames
+        #lstm_size=self.lstm_size
+        #num_classes=self.num_classes
         backbone_input=self.backbone_input
-        img_seq_input=self.img_seq_input
-        opt_seq_input=self.opt_seq_input
+        #img_seq_input=self.img_seq_input
+        #opt_seq_input=self.opt_seq_input
 
 
         ### set inputs with a fixed batch size
@@ -144,18 +145,18 @@ class LRASPP():
         direction_out = Dense(num_classes, activation=finalAct, name=output_name)(x)
         return prostate_out, direction_out
 
-    def _seg_head(self, seg1_out, seg2_out, seg_classes):
+    def _seg_head(self, seg1_out, seg2_out):
         ### create segmentation head
         # specify parameters
         input1 = seg1_out
         input2 = seg2_out
-        num_classes=self.num_classes
+        seg_classes=self.seg_classes+1
 
         # Pre-processing LSTM layers - if memory is an issue, replace with Conv2D of last slice
         input1 = ConvLSTM2D(filters=input1.get_shape()[-1], kernel_size=(1,1))(input1)
-        input1 = Lambda(lambda x: resize(x,[128,128]), name='resize_input1')(input1)
+        #input1 = Lambda(lambda x: resize(x,[128,128]), name='resize_input1')(input1)
         input2 = ConvLSTM2D(filters=input2.get_shape()[-1], kernel_size=(1,1))(input2)
-        input2 = Lambda(lambda x: resize(x,[64,64]), name='resize_input2')(input2)
+        #input2 = Lambda(lambda x: resize(x,[64,64]), name='resize_input2')(input2)
 
         # branch 1
         x1 = Conv2D(filters=128, kernel_size=(1, 1))(input2)
@@ -164,7 +165,7 @@ class LRASPP():
         h1, w1 = x1.get_shape()[1:3]
 
         # branch 2
-        x2 = AveragePooling2D(pool_size=(49, 49), strides=(15, 15))(input2)
+        x2 = AveragePooling2D(pool_size=(25, 25), strides=(7, 7))(input2)
         x2 = Conv2D(128, (1, 1))(x2)
         x2 = Activation('sigmoid')(x2)
         x2 = resize(x2,[h1, w1])
@@ -178,14 +179,19 @@ class LRASPP():
         x1 = resize(x1,[h3, w3])
         x1 = Conv2D(filters=seg_classes, kernel_size=(1, 1))(x1)
         x1 = Add()([x1, x3])
-        x1 = Lambda(lambda x: resize(x,[512,512]))(x1)
-        #x1 = Conv2DTranspose(filters=seg_classes, kernel_size=7, strides=4, padding='same')(x1)
-        segment_out = Activation('softmax', name='segment_out')(x1)
+        #x1 = Lambda(lambda x: resize(x,[512,512]))(x1)
+        segment_out = Conv2DTranspose(
+            filters=seg_classes, 
+            kernel_size=7, 
+            strides=8, 
+            padding='same', 
+            name='segment_out'
+            )(x1)
         return segment_out
 
-    def build_model(self, seg_classes=1, cls_act='sigmoid'):
+    def build_model(self, cls_act='softmax'):
         ### cls_act = 'softmax' ### normal for one hot encoding
-
+        
         # build backbone model and wrap for image sequences
         x = self._backbone()
         flat_shapes=x.flat_shapes
@@ -197,7 +203,7 @@ class LRASPP():
         # pass class output to LSTM heads
         prostate_out, position_out = self._lstm_head(cls_out, cls_act)
         # pass seg outputs to segmentation head
-        segmentation_out = self._seg_head(seg1_out, seg2_out, seg_classes)
+        segmentation_out = self._seg_head(seg1_out, seg2_out)
 
         model = Model(inputs=[self.img_seq_input, self.opt_seq_input], outputs=[prostate_out,position_out,segmentation_out])
 

@@ -17,7 +17,7 @@ import numpy as np
 #    print(os.path.basename(sys.argv[0]), file=f)
 
 
-def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(640,480)):
+def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(512,512)):
     # for each sample, list image name and calculate class weights
     images_list = dataframe.index.tolist()
     #pths_list = dataframe.pths.tolist()
@@ -54,8 +54,8 @@ def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(640,48
                 
                 # augmentation parameters
                 rnd_angle = random.randint(-25, 25)
-                rnd_lr = random.randint(0, 1)
-                rnd_ud = random.randint(0, 1)
+                #rnd_lr = random.randint(0, 1)
+                #rnd_ud = random.randint(0, 1)
                 rnd_x = random.randint(-100, -100)
                 rnd_y = random.randint(-100, 100)
 
@@ -76,7 +76,7 @@ def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(640,48
                         # ensure correct range and scaling
                         mask1 = krs.img_to_array(mask1)
                         mask1 = np.clip(mask1,0,1)
-                        mask=mask1
+                        mask=mask1+1
 
                     image1 = krs.img_to_array(image1)
                     image1 = mn.mobilenet_v2.preprocess_input(image1)  # ensure scaling is appropriate to model
@@ -161,8 +161,8 @@ def us_single(dataframe, img_path, msk_path, batch_size,imdimensions=(640,480)):
             
             # augmentation parameters
             rnd_angle = random.randint(-25, 25)
-            rnd_lr = random.randint(0, 1)
-            rnd_ud = random.randint(0, 1)
+            #rnd_lr = random.randint(0, 1)
+            #rnd_ud = random.randint(0, 1)
             rnd_x = random.randint(-100, -100)
             rnd_y = random.randint(-100, 100)
 
@@ -177,7 +177,7 @@ def us_single(dataframe, img_path, msk_path, batch_size,imdimensions=(640,480)):
             # ensure correct range and scaling
             mask1 = krs.img_to_array(mask1)
             mask1 = np.clip(mask1,0,1)
-            mask=mask1
+            mask=mask1+1
             image1 = krs.img_to_array(image1)
             image = mn.mobilenet_v2.preprocess_input(image1)  # ensure scaling is appropriate to model
 

@@ -3,7 +3,7 @@ import argparse
 import tensorflow as tf
 from tensorflow.keras.utils import multi_gpu_model
 import tensorflow.keras.backend as K
-from tensorflow.keras.losses import categorical_crossentropy, sparse_categorical_crossentropy, SparseCategoricalCrossentropy
+from tensorflow.keras.losses import categorical_crossentropy, SparseCategoricalCrossentropy
 from tensorflow.keras.metrics import mse, MeanIoU
 from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras.models import Model
@@ -19,8 +19,8 @@ import pandas as pd
 import random
 import os
 import datetime
-import mobnet
-import data
+from unet import unet
+from data import us_single
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-l', '--learnrate', required=False, help='learning rate (required)', default=1e-3, type=float)
@@ -38,7 +38,6 @@ args = vars(ap.parse_args())
 epochs = args['epochs']
 
 # log root directory?
-#log_root = '/mnt/c/Users/rootm/wsl/logs'
 log_root = args['output']  # path to output logs
 
 # autogenerate log directories
@@ -81,25 +80,6 @@ pts = list(set([fl_list[i][0:6] for i in range(len(fl_list))]))
 ######################################################################################
 
 # specify loss functions and metrics so that the final loss is summed in quadrature
-def dc_squared(y_true, y_pred):
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = K.sum(y_true_f * y_pred_f)
-    dice_coef = 1 - (2. * intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
-    return dice_coef
-
-def cc_squared(y_true, y_pred):
-    return categorical_crossentropy(y_true, y_pred)**2
-
-
-epsilon = backend_config.epsilon
-def seg_bc_squared(y_true,y_pred):
-    epsilon_ = constant_op.constant(epsilon(), dtype=y_pred.dtype.base_dtype)
-    y_pred = clip_ops.clip_by_value(y_pred, epsilon_, 1. - epsilon_)
-    bce = y_true * math_ops.log(y_pred + epsilon_)*0.9
-    bce += (1 - y_true) * math_ops.log(1 - y_pred + epsilon_)*1.1
-    return bce**2
-
 pos_loss = "categorical_crossentropy"
 dir_loss = "categorical_crossentropy"
 seg_loss = SparseCategoricalCrossentropy(from_logits=True)
@@ -116,7 +96,7 @@ if dist_strat is True:
     batch_size = batch_size * strategy.num_replicas_in_sync
     with strategy.scope():
         # create the model
-        model = mobnet.LRASPP().build_model() 
+        model = unet().build_model() 
         # compile the model
         model.compile(optimizer=RMSprop(lr=learning_rate), 
             loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
@@ -124,14 +104,13 @@ if dist_strat is True:
 
 else:
     # create the model
-    model = mobnet.LRASPP().build_model() 
-
+    model = unet().build_model() 
     # compile the model
     model.compile(optimizer=RMSprop(lr=learning_rate), 
         loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
         metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
-plot_model(model, to_file=os.path.join(log_dir, 'mixed_Classifier.png'), show_shapes=True, show_layer_names=True)
+plot_model(model, to_file=os.path.join(log_dir, 'Unet_Classifier.png'), show_shapes=True, show_layer_names=True)
 
 # set checkpoints
 checkpoint_filepath = os.path.join(log_dir, "model.best.hdf5")  # saves last model
@@ -139,7 +118,7 @@ checkpoint = ModelCheckpoint(checkpoint_filepath, monitor='val_loss', verbose=1,
 
 # set csv output
 csv_filepath = os.path.join(log_dir, 'training.log')
-csv_logger = CSVLogger(csv_filepath)
+csv_logger = CSVLogger(csv_filepath, separator=',', append=True)
 
 #########################################################################################
 # loop through epochs
@@ -154,8 +133,8 @@ for rng in range(epochs):
     # specify k-fold split for this epoch
     df_train = df[~df['pt'].isin(pts[k:k+5])]
     df_val = df[df['pt'].isin(pts[k:k+5])]
-    train_generator = data.us_generator(df_train, img_path, msk_path, batch_size)
-    validation_generator = data.us_generator(df_val, img_path, msk_path, batch_size)
+    train_generator = us_single(df_train, img_path, msk_path, batch_size)
+    validation_generator = us_single(df_val, img_path, msk_path, batch_size)
     nb_train_samples = df_train.index.size
     nb_validation_samples = df_val.index.size
 
@@ -170,18 +149,18 @@ for rng in range(epochs):
 
     # serialize model to JSON
     model_json = model.to_json()
-    with open(os.path.join(log_dir, 'lstm_classifier.json'), 'w') as json_file:
+    with open(os.path.join(log_dir, 'Unet_Classifier.json'), 'w') as json_file:
         json_file.write(model_json)
-    
+
     # serialize weights to HDF5
-    model.save_weights(os.path.join(log_dir, 'lstm_classifier.h5'))
+    model.save_weights(os.path.join(log_dir, 'Unet_Classifier.h5'))
     print('Saved model to disk: '+ log_dir)
 
     k += 6
     x += 1
 
 # specify k-fold split for this epoch
-train_generator = data.us_generator(df)
+train_generator = us_single(df_train,img_path, msk_path, batch_size)
 nb_train_samples = df.index.size
 # set csv output
 csv_filepath2 = os.path.join(log_dir, 'trainingFinal.log')
@@ -198,10 +177,10 @@ model.fit(
 
 # serialize model to JSON
 model_json = model.to_json()
-with open(os.path.join(log_dir, 'base_classifier.json'), 'w') as json_file:
+with open(os.path.join(log_dir, 'Unet_Classifier.json'), 'w') as json_file:
     json_file.write(model_json)
 # serialize weights to HDF5
-model.save_weights(os.path.join(log_dir, 'base_classifier.h5'))
+model.save_weights(os.path.join(log_dir, 'Unet_Classifier.h5'))
 print('Saved model to disk: '+ log_dir)
 
 
