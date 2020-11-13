@@ -109,7 +109,7 @@ else:
     # create the model
     model = unet().build_model() 
     # compile the model
-    model.compile(optimizer=Adam(lr=learning_rate), 
+    model.compile(optimizer=RMSprop(lr=learning_rate), 
         loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
         metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
