@@ -25,7 +25,7 @@ from data import us_single
 import sample_predict
 
 ap = argparse.ArgumentParser()
-ap.add_argument('-l', '--learnrate', required=False, help='learning rate (required)', default=1e-3, type=float)
+ap.add_argument('-l', '--learnrate', required=False, help='learning rate (required)', default=1e-4, type=float)
 ap.add_argument('-b', '--batchsize', required=False, help='batch size (default 32)', type=int, default=3)
 ap.add_argument('-e', '--epochs', required=False, help='epoch size (default 100)', default=100, type=int)
 ap.add_argument('-d', '--data', required=False, help='directory containing images and labels folders (required)',default='/mnt/c/Experiments/ICR/png/proto',type=str)
@@ -69,6 +69,7 @@ batch_size = args['batchsize']
 # mirrored strategy?
 dist_strat = args['mirrored']
 
+
 ######################################################################################
 # load ultrasound images, rotation images, and csv files containing labels
 us_labels = os.path.join(root_path,'labels','labels_cons.csv')
@@ -101,7 +102,7 @@ if dist_strat is True:
         # create the model
         model = unet().build_model() 
         # compile the model
-        model.compile(optimizer=Adam(lr=learning_rate), 
+        model.compile(optimizer=RMSprop(lr=learning_rate), 
             loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
             metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
@@ -121,6 +122,13 @@ checkpoint = ModelCheckpoint(checkpoint_filepath, monitor='val_loss', verbose=1,
 
 # set csv output
 csv_filepath = os.path.join(log_dir, 'training.log')
+f = open(csv_filepath, 'a')
+f.write('Learning Rate: '+str(learning_rate)+
+        ', Batch Size: '+str(batch_size)+
+        ', Positions Loss: '+pos_loss+
+        ', Directions Loss: '+dir_loss+
+        '\n')
+f.close()
 csv_logger = CSVLogger(csv_filepath, separator=',', append=True)
 
 #########################################################################################
