@@ -7,7 +7,7 @@ from tensorflow.keras.losses import categorical_crossentropy, SparseCategoricalC
 from tensorflow.keras.metrics import mse, MeanIoU
 from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import RMSprop
+from tensorflow.keras.optimizers import RMSprop, Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
 from tensorflow.keras.utils import plot_model
 from tensorflow.python.ops import math_ops
@@ -21,6 +21,8 @@ import os
 import datetime
 from unet import unet
 from data import us_single
+#import gradcam
+import sample_predict
 
 ap = argparse.ArgumentParser()
 ap.add_argument('-l', '--learnrate', required=False, help='learning rate (required)', default=1e-3, type=float)
@@ -58,6 +60,7 @@ root_path = args['data']  # path to images, labels and rotImages
 # target image size?
 img_width = 480
 img_height = 640
+imdimensions = (img_height,img_width)
 
 # batch_size?
 #batch_size = 2
@@ -98,7 +101,7 @@ if dist_strat is True:
         # create the model
         model = unet().build_model() 
         # compile the model
-        model.compile(optimizer=RMSprop(lr=learning_rate), 
+        model.compile(optimizer=Adam(lr=learning_rate), 
             loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
             metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
@@ -106,7 +109,7 @@ else:
     # create the model
     model = unet().build_model() 
     # compile the model
-    model.compile(optimizer=RMSprop(lr=learning_rate), 
+    model.compile(optimizer=Adam(lr=learning_rate), 
         loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
         metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
@@ -123,8 +126,7 @@ csv_logger = CSVLogger(csv_filepath, separator=',', append=True)
 #########################################################################################
 # loop through epochs
 k = 0
-x = 0
-for rng in range(epochs):
+for x in range(epochs):
     # shuffle patient list and restart k-folding
     if k > len(pts)-7:
         k = 0
@@ -147,6 +149,9 @@ for rng in range(epochs):
         callbacks=[csv_logger],
         initial_epoch=x)
 
+    # record prediction sample
+    sample_predict.plot_unet_sample(model, df_val, root_path, imdimensions, log_dir, x)
+
     # serialize model to JSON
     model_json = model.to_json()
     with open(os.path.join(log_dir, 'Unet_Classifier.json'), 'w') as json_file:
@@ -157,7 +162,6 @@ for rng in range(epochs):
     print('Saved model to disk: '+ log_dir)
 
     k += 6
-    x += 1
 
 # specify k-fold split for this epoch
 train_generator = us_single(df_train,img_path, msk_path, batch_size)

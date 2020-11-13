@@ -112,7 +112,7 @@ class unet():
         input1=concatenate(inputs=[cls_out,self.opt_input],axis=-1)
         num_classes=self.num_classes
         label_category='prostate'
-        fc0_size = 256
+        fc0_size = 512
         fc1_size = fc0_size / 2
         fc2_size = fc1_size / 2
         final_fc_name = label_category + "_fc2"
@@ -123,8 +123,8 @@ class unet():
         x = Dropout(0.5)(x)
         x = Dense(fc1_size)(x)
         x = Dropout(0.5)(x)
-        x_out = Dense(fc2_size, name=final_fc_name)(x)
-        x = Dropout(0.5)(x_out)
+        x = Dense(fc2_size, name=final_fc_name)(x)
+        x = Dropout(0.5)(x)
         prostate_out = Dense(num_classes, activation=finalAct, name=output_name)(x)
 
         # DIRECTION BRANCH parameters
@@ -137,8 +137,6 @@ class unet():
         x = Dropout(0.5)(x)
         x = Dense(fc1_size)(x)
         x = Dropout(0.5)(x)
-        x = Dense(fc2_size)(x)
-        x = Concatenate()([x,x_out])
         x = Dense(fc2_size, name=final_fc_name)(x)
         x = Dropout(0.5)(x)
         direction_out = Dense(num_classes, activation=finalAct, name=output_name)(x)
