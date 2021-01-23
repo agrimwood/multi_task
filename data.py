@@ -48,7 +48,7 @@ def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(512,51
             if int(images_list[i][-7:-4]) > 9:
                 filelist = [os.path.join(img_path, images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(10)]
 
-                masklist = [os.path.join(msk_path, images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(10)]
+                masklist = [os.path.join(msk_path, 'msk_'+images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(10)]
 
                 ixlist = [images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:] for n in range(10)]
                 
@@ -156,7 +156,7 @@ def us_single(dataframe, img_path, msk_path, batch_size,imdimensions=(640,480)):
                 random.Random(42).shuffle(dir_weight)
 
             filelist = os.path.join(img_path, images_list[i])
-            masklist = os.path.join(msk_path, images_list[i])
+            masklist = os.path.join(msk_path, 'msk_'+images_list[i])
             ixlist = images_list[i]
             
             # augmentation parameters

@@ -23,15 +23,13 @@ import mobnet
 import data
 
 ap = argparse.ArgumentParser()
-ap.add_argument('-l', '--learnrate', required=False, help='learning rate (required)', default=1e-3, type=float)
+ap.add_argument('-l', '--learnrate', required=False, help='learning rate (required)', default=1e-4, type=float)
 ap.add_argument('-b', '--batchsize', required=False, help='batch size (default 32)', type=int, default=3)
-ap.add_argument('-e', '--epochs', required=False, help='epoch size (default 100)', default=100, type=int)
+ap.add_argument('-e', '--epochs', required=False, help='epoch size (default 100)', default=200, type=int)
 ap.add_argument('-d', '--data', required=False, help='directory containing images and labels folders (required)',default='/mnt/c/Experiments/ICR/png/proto',type=str)
 ap.add_argument('-o', '--output', required=False, help='output directory for model, graph and epoch stats (required)',default='/mnt/c/Experiments/ICR/png',type=str)
 ap.add_argument('-m', '--mirrored', required=False, help='use mirrored strategy for multi-gpu processing', default=False, type=bool)
 args = vars(ap.parse_args())
-
-# use loss weights?
 
 # number of epochs?
 #epochs = 3
@@ -40,10 +38,6 @@ epochs = args['epochs']
 # log root directory?
 #log_root = '/mnt/c/Users/rootm/wsl/logs'
 log_root = args['output']  # path to output logs
-
-# autogenerate log directories
-log_dir = os.path.join(log_root, datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f"))
-os.makedirs(log_dir, exist_ok=True)
 
 # learning rate?
 #learning_rate = 1e-3
@@ -56,9 +50,6 @@ directions_class = 3
 # data root directory?
 #root_path = '/mnt/c/Experiments/ICR/png/proto/'
 root_path = args['data']  # path to images, labels and rotImages
-# target image size?
-img_width = 480
-img_height = 640
 
 # batch_size?
 #batch_size = 2
@@ -68,6 +59,23 @@ batch_size = args['batchsize']
 dist_strat = args['mirrored']
 
 ######################################################################################
+#epochs = 100
+#log_root = '/mnt/c/Experiments/ICR/IJCARS/output'
+#learning_rate = 1e-4
+#root_path = '/mnt/c/Experiments/ICR/IJCARS/IJCARS_data'
+#batch_size = 5
+#dist_strat = False
+######################################################################################
+
+# autogenerate log directories
+log_dir = os.path.join(log_root, datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f"))
+os.makedirs(log_dir, exist_ok=True)
+
+# target image size
+img_width = 512
+img_height = 512
+imdimensions = (img_height,img_width)
+
 # load ultrasound images, rotation images, and csv files containing labels
 us_labels = os.path.join(root_path,'labels','labels_cons.csv')
 df = pd.read_csv(us_labels, index_col='FileName')
@@ -139,7 +147,6 @@ checkpoint = ModelCheckpoint(checkpoint_filepath, monitor='val_loss', verbose=1,
 
 # set csv output
 csv_filepath = os.path.join(log_dir, 'training.log')
-csv_logger = CSVLogger(csv_filepath)
 
 #########################################################################################
 # loop through epochs
@@ -154,19 +161,30 @@ for rng in range(epochs):
     # specify k-fold split for this epoch
     df_train = df[~df['pt'].isin(pts[k:k+5])]
     df_val = df[df['pt'].isin(pts[k:k+5])]
-    train_generator = data.us_generator(df_train, img_path, msk_path, batch_size)
-    validation_generator = data.us_generator(df_val, img_path, msk_path, batch_size)
+    train_generator = data.us_generator(dataframe=df_train, img_path=img_path, msk_path=msk_path, batch_size=batch_size)
+    validation_generator = data.us_generator(dataframe=df_val, img_path=img_path, msk_path=msk_path, batch_size=batch_size)
     nb_train_samples = df_train.index.size
     nb_validation_samples = df_val.index.size
 
-    model.fit(
+    history = model.fit(
         train_generator,
-        steps_per_epoch=nb_train_samples // batch_size,
+        steps_per_epoch=1,#nb_train_samples // batch_size,
         epochs=x+1,
         validation_data=validation_generator,
-        validation_steps=nb_validation_samples // batch_size,
-        callbacks=[csv_logger],
+        validation_steps=1,#nb_validation_samples // batch_size,
         initial_epoch=x)
+
+    # record prediction sample
+    sample_predict.plot_mobnet_sample(model, df, root_path, imdimensions, log_dir, x)
+    
+    #write to log file
+    hist_df = pd.DataFrame(history.history)
+    hist_df.insert(0,'epoch',history.epoch[:])
+    with open(csv_filepath, mode='a') as f:
+        if rng == 0:
+            hist_df.to_csv(f, header=True)
+        else:
+            hist_df.to_csv(f, header=False)
 
     # serialize model to JSON
     model_json = model.to_json()
@@ -180,29 +198,29 @@ for rng in range(epochs):
     k += 6
     x += 1
 
-# specify k-fold split for this epoch
-train_generator = data.us_generator(df)
-nb_train_samples = df.index.size
-# set csv output
-csv_filepath2 = os.path.join(log_dir, 'trainingFinal.log')
-csv_logger2 = CSVLogger(csv_filepath2, separator=',', append=True)
+# # specify k-fold split for this epoch
+# train_generator = data.us_generator(df)
+# nb_train_samples = df.index.size
+# # set csv output
+# csv_filepath2 = os.path.join(log_dir, 'trainingFinal.log')
+# csv_logger2 = CSVLogger(csv_filepath2, separator=',', append=True)
 
 
-model.fit(
-    train_generator,
-    steps_per_epoch=nb_train_samples // batch_size,
-    epochs=x+1,
-    validation_data=None,
-    callbacks=[csv_logger2],
-    initial_epoch=x)
+# model.fit(
+#     train_generator,
+#     steps_per_epoch=nb_train_samples // batch_size,
+#     epochs=x+1,
+#     validation_data=None,
+#     callbacks=[csv_logger2],
+#     initial_epoch=x)
 
-# serialize model to JSON
-model_json = model.to_json()
-with open(os.path.join(log_dir, 'base_classifier.json'), 'w') as json_file:
-    json_file.write(model_json)
-# serialize weights to HDF5
-model.save_weights(os.path.join(log_dir, 'base_classifier.h5'))
-print('Saved model to disk: '+ log_dir)
+# # serialize model to JSON
+# model_json = model.to_json()
+# with open(os.path.join(log_dir, 'base_classifier.json'), 'w') as json_file:
+#     json_file.write(model_json)
+# # serialize weights to HDF5
+# model.save_weights(os.path.join(log_dir, 'base_classifier.h5'))
+# print('Saved model to disk: '+ log_dir)
 
 
 

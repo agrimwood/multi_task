@@ -11,12 +11,12 @@ def unet_sample(dataframe, root_dir, imdimensions):
     dataframe['slice'] = dataframe.index.str[-7:-4].astype(int)
     dataframe[dataframe['slice'] >=10]
     #collect a random sample from each class
-    p1 = dataframe.loc[dataframe.position.eq('Outside Prostate')].sample()
-    p2 = dataframe.loc[dataframe.position.eq('Prostate Low Confidence')].sample()
-    p3 = dataframe.loc[dataframe.position.eq('Prostate High Confidence')].sample()
-    d1 = dataframe.loc[dataframe.direction.eq('Move Right')].sample()
-    d2 = dataframe.loc[dataframe.direction.eq('Centred')].sample()
-    d3 = dataframe.loc[dataframe.direction.eq('Move Left')].sample()
+    p1 = dataframe.loc[dataframe.position.eq('outside')].sample()
+    p2 = dataframe.loc[dataframe.position.eq('periphery')].sample()
+    p3 = dataframe.loc[dataframe.position.eq('centre')].sample()
+    d1 = dataframe.loc[dataframe.direction.eq('left')].sample()
+    d2 = dataframe.loc[dataframe.direction.eq('stop')].sample()
+    d3 = dataframe.loc[dataframe.direction.eq('right')].sample()
     lst = [p1,p2,p3,d1,d2,d3]
     
     #load sample inputs and masks
@@ -34,7 +34,7 @@ def unet_sample(dataframe, root_dir, imdimensions):
         # record consenus
         consensus1=sample[['outside','periphery','centre']].values
         y1_cons.append(consensus1.max())
-        consensus2=sample[['right','stop','left']].values
+        consensus2=sample[['left','stop','right']].values
         y2_cons.append(consensus2.max())
 
         # load image and mask
@@ -75,12 +75,12 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
     dataframe['slice'] = dataframe.index.str[-7:-4].astype(int)
     dataframe[dataframe['slice'] >=10]
     #collect a random sample from each class
-    p1 = dataframe.loc[dataframe.position.eq('Outside Prostate')].sample()
-    p2 = dataframe.loc[dataframe.position.eq('Prostate Low Confidence')].sample()
-    p3 = dataframe.loc[dataframe.position.eq('Prostate High Confidence')].sample()
-    d1 = dataframe.loc[dataframe.direction.eq('Move Right')].sample()
-    d2 = dataframe.loc[dataframe.direction.eq('Centred')].sample()
-    d3 = dataframe.loc[dataframe.direction.eq('Move Left')].sample()
+    p1 = dataframe.loc[dataframe.position.eq('outside')].sample()
+    p2 = dataframe.loc[dataframe.position.eq('periphery')].sample()
+    p3 = dataframe.loc[dataframe.position.eq('centre')].sample()
+    d1 = dataframe.loc[dataframe.direction.eq('left')].sample()
+    d2 = dataframe.loc[dataframe.direction.eq('stop')].sample()
+    d3 = dataframe.loc[dataframe.direction.eq('right')].sample()
     lst = [p1,p2,p3,d1,d2,d3]
     
     #load sample inputs and masks
@@ -98,7 +98,7 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
         # record consenus
         consensus1=sample[['outside','periphery','centre']].values
         y1_cons.append(consensus1.max())
-        consensus2=sample[['right','stop','left']].values
+        consensus2=sample[['left','stop','right']].values
         y2_cons.append(consensus2.max())
 
         # load image sequence, tracking data and mask
@@ -122,7 +122,7 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
         csv_features = np.array(rotfeatures)
         rsz_features = np.concatenate((csv_features,abs(csv_features)), axis=-1)
         
-        mk_name = os.path.join(root_dir,'masks',sample.index[0]) 
+        msk_name = os.path.join(root_dir,'masks',sample.index[0]) 
         mask = krs.load_img(im_name,color_mode='grayscale', target_size=imdimensions)
         mask = krs.img_to_array(mask)
 
@@ -146,6 +146,7 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
     return inputs, labels, consensus
 
 def plot_unet_sample(model, dataframe, root_dir, imdimensions, log_dir, epoch):
+    sub_titles=['Outside','Periphery','Centre','Left','Stop','Right']
     dpi=300
     im_w = round(imdimensions[1]*6/dpi,1)
     im_h = round(imdimensions[0]*2/dpi,1)
@@ -160,7 +161,8 @@ def plot_unet_sample(model, dataframe, root_dir, imdimensions, log_dir, epoch):
         imdisp = imdisp / imdisp.max()
         grid[i].imshow(imdisp,cmap='gray')
         grid[i].axis('off')
-        grid[i].set_title('P:'+str(round(consensus_sub[0][i],1))+' D:'+str(round(consensus_sub[1][i],1))+' ')
+        plt.rcParams.update({'axes.titlesize': 'small'})
+        grid[i].set_title(sub_titles[i]+'\nP:'+str(round(consensus_sub[0][i],2))+' D:'+str(round(consensus_sub[1][i],2))+' ')
         imdisp = rslts[0][i,...,2]
         imdisp = imdisp-imdisp.min()
         imdisp = imdisp / imdisp.max()
@@ -170,6 +172,7 @@ def plot_unet_sample(model, dataframe, root_dir, imdimensions, log_dir, epoch):
     #plt.show(block=True)
 
 def plot_mobnet_sample(model, dataframe, root_dir, imdimensions, log_dir, epoch):
+    sub_titles=['Outside','Periphery','Centre','Left','Stop','Right']
     dpi=300
     im_w = round(imdimensions[1]*6/dpi,1)
     im_h = round(imdimensions[0]*2/dpi,1)
@@ -179,13 +182,14 @@ def plot_mobnet_sample(model, dataframe, root_dir, imdimensions, log_dir, epoch)
     fig=plt.figure(figsize=(im_w,im_h), dpi=300)
     grid = ImageGrid(fig,111,nrows_ncols=(2,6),axes_pad=0)
     for i in range(0,6):
-        imdisp = inputs_sub[0][i,...]
+        imdisp = inputs_sub[0][i,9,...]
         imdisp = imdisp-imdisp.min()
         imdisp = imdisp / imdisp.max()
         grid[i].imshow(imdisp,cmap='gray')
         grid[i].axis('off')
-        grid[i].set_title('P:'+str(round(consensus_sub[0][i],1))+' D:'+str(round(consensus_sub[1][i],1))+' ')
-        imdisp = rslts[0][i,...,2]
+        plt.rcParams.update({'axes.titlesize': 'small'})
+        grid[i].set_title(sub_titles[i]+'\nP:'+str(round(consensus_sub[0][i],2))+' D:'+str(round(consensus_sub[1][i],2))+' ')
+        imdisp = rslts[2][i,...]
         imdisp = imdisp-imdisp.min()
         imdisp = imdisp / imdisp.max()
         grid[i+6].imshow(imdisp,cmap='gray')
