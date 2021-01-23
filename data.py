@@ -46,11 +46,11 @@ def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(512,51
                 random.Random(42).shuffle(dir_weight)
 
             if int(images_list[i][-7:-4]) > 9:
-                filelist = [os.path.join(img_path, images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(10)]
+                filelist = [os.path.join(img_path, images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(0,10,2)]
 
-                masklist = [os.path.join(msk_path, 'msk_'+images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(10)]
+                masklist = [os.path.join(msk_path, 'msk_'+images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:]) for n in range(0,10,2)]
 
-                ixlist = [images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:] for n in range(10)]
+                ixlist = [images_list[i][:-7]+str(int(images_list[i][-7:-4])-9+n).zfill(3) + images_list[i][-4:] for n in range(0,10,2)]
                 
                 # augmentation parameters
                 rnd_angle = random.randint(-25, 25)
@@ -63,13 +63,13 @@ def us_generator(dataframe, img_path, msk_path, batch_size, imdimensions=(512,51
                 rotfeatures=[]
 
                 # load 5 images in sequence
-                for n in range(10):
+                for n in range(5):
                     # augment images
                     image1 = krs.load_img(filelist[n],color_mode='rgb', target_size=imdimensions)
                     image1.rotate(rnd_angle)
                     image1.transform(image1.size, Image.AFFINE,(1,0,rnd_x,0,1,rnd_y))
                     # augment masks
-                    if n==9:
+                    if n==4:
                         mask1 = krs.load_img(masklist[n],color_mode='grayscale', target_size=imdimensions)
                         mask1.rotate(rnd_angle)
                         mask1.transform(mask1.size, Image.AFFINE,(1,0,rnd_x,0,1,rnd_y))

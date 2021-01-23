@@ -102,7 +102,7 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
         y2_cons.append(consensus2.max())
 
         # load image sequence, tracking data and mask
-        for n in range(10):
+        for n in range(0,10,2):
             slice_name = str(sample.slice[0]-9+n).zfill(3)
             slice_name = sample.index[0][:-7] + slice_name + sample.index[0][-4:]
             im_name = os.path.join(root_dir,'images',sample.index[0])
@@ -182,7 +182,7 @@ def plot_mobnet_sample(model, dataframe, root_dir, imdimensions, log_dir, epoch)
     fig=plt.figure(figsize=(im_w,im_h), dpi=300)
     grid = ImageGrid(fig,111,nrows_ncols=(2,6),axes_pad=0)
     for i in range(0,6):
-        imdisp = inputs_sub[0][i,9,...]
+        imdisp = inputs_sub[0][i,-1,...]
         imdisp = imdisp-imdisp.min()
         imdisp = imdisp / imdisp.max()
         grid[i].imshow(imdisp,cmap='gray')

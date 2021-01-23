@@ -10,7 +10,7 @@ from tensorflow.keras.utils import plot_model
 
 # %%
 class LRASPP():
-    def __init__(self, net_type='MobileNetV2', trainable=False, batch_size=None, frames=10, lstm_size=256, num_classes=3, seg_classes=2, im_dimensions=[512,512,3]):
+    def __init__(self, net_type='MobileNetV2', trainable=False, batch_size=None, frames=5, lstm_size=256, num_classes=3, seg_classes=2, im_dimensions=[512,512,3]):
         self.net_type = net_type
         self.trainable = trainable
         self.batch_size = batch_size
@@ -114,13 +114,14 @@ class LRASPP():
         x = Dropout(0.5)(x)
         x = Dense(fc1_size)(x)
         x = Dropout(0.5)(x)
-        x_out = Dense(fc2_size, name=final_fc_name)(x)
-        x = Dropout(0.5)(x_out)
+        #x_out = Dense(fc2_size, name=final_fc_name)(x)
+        x = Dense(fc2_size, name=final_fc_name)(x)
+        #x = Dropout(0.5)(x_out)
         prostate_out = Dense(num_classes, activation=finalAct, name=output_name)(x)
 
         ## LSTM 2
         # parameters
-        input2=x_out
+        #input2=x_out
         label_category='direction'
 
         # establish layer parameters
@@ -139,9 +140,9 @@ class LRASPP():
         x = Dense(fc1_size)(x)
         x = Dropout(0.5)(x)
         x = Dense(fc2_size)(x)
-        x = Concatenate()([x,input2])
-        x = Dense(fc2_size, name=final_fc_name)(x)
-        x = Dropout(0.5)(x)
+        #x = Concatenate()([x,input2])
+        #x = Dense(fc2_size, name=final_fc_name)(x)
+        #x = Dropout(0.5)(x)
         direction_out = Dense(num_classes, activation=finalAct, name=output_name)(x)
         return prostate_out, direction_out
 
