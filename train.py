@@ -154,7 +154,7 @@ k = 0
 x = 0
 for rng in range(epochs):
     # shuffle patient list and restart k-folding
-    if k > len(pts)-7:
+    if k > len(pts)-5:
         k = 0
         random.shuffle(pts)
 
@@ -168,10 +168,10 @@ for rng in range(epochs):
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=1,#nb_train_samples // batch_size,
+        steps_per_epoch=nb_train_samples // batch_size,
         epochs=x+1,
         validation_data=validation_generator,
-        validation_steps=1,#nb_validation_samples // batch_size,
+        validation_steps=nb_validation_samples // batch_size,
         initial_epoch=x)
 
     # record prediction sample
