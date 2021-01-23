@@ -73,14 +73,13 @@ def unet_sample(dataframe, root_dir, imdimensions):
 def mobnet_sample(dataframe, root_dir, imdimensions):
     # discard first 9 slices from each sequence
     dataframe['slice'] = dataframe.index.str[-7:-4].astype(int)
-    dataframe[dataframe['slice'] >=10]
     #collect a random sample from each class
-    p1 = dataframe.loc[dataframe.position.eq('outside')].sample()
-    p2 = dataframe.loc[dataframe.position.eq('periphery')].sample()
-    p3 = dataframe.loc[dataframe.position.eq('centre')].sample()
-    d1 = dataframe.loc[dataframe.direction.eq('left')].sample()
-    d2 = dataframe.loc[dataframe.direction.eq('stop')].sample()
-    d3 = dataframe.loc[dataframe.direction.eq('right')].sample()
+    p1 = dataframe.loc[(dataframe['slice'] >=10) & (dataframe.slice.ge(10))].sample()
+    p2 = dataframe.loc[(dataframe.position.eq('periphery')) & (dataframe.slice.ge(10))].sample()
+    p3 = dataframe.loc[(dataframe.position.eq('centre')) & (dataframe.slice.ge(10))].sample()
+    d1 = dataframe.loc[(dataframe.direction.eq('left')) & (dataframe.slice.ge(10))].sample()
+    d2 = dataframe.loc[(dataframe.direction.eq('stop')) & (dataframe.slice.ge(10))].sample()
+    d3 = dataframe.loc[(dataframe.direction.eq('right')) & (dataframe.slice.ge(10))].sample()
     lst = [p1,p2,p3,d1,d2,d3]
     
     #load sample inputs and masks
@@ -116,8 +115,13 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
                 image1 = np.concatenate((image1,preproc_im))
             
             # tracking data
-            csv_row = dataframe[dataframe.index == slice_name]
-            rotfeatures.append([csv_row.rot_si[0], csv_row.rot_ap[0], csv_row.rot_lr[0]])
+            try:
+                csv_row = dataframe[dataframe.index == slice_name]
+                rotfeatures.append([csv_row.rot_si[0], csv_row.rot_ap[0], csv_row.rot_lr[0]])
+            except:
+                print(slice_name)
+                print(sample.slice[0])
+                print(sample.slice[:-1])
 
         csv_features = np.array(rotfeatures)
         rsz_features = np.concatenate((csv_features,abs(csv_features)), axis=-1)
