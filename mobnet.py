@@ -6,7 +6,7 @@ from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Concatenate, Input, Flatten, Lambda, Reshape, TimeDistributed, LSTM, Dropout, Dense, concatenate, Multiply, ConvLSTM2D, Conv2D, AveragePooling2D, Add, Conv2DTranspose, BatchNormalization, Activation
 from tensorflow.image import resize
-from tensorflow.keras.utils import plot_model
+from tensorflow.keras.utils import plot_modelgit status
 
 # %%
 class LRASPP():
@@ -223,5 +223,3 @@ class LRASPP():
 # model = Model(inputs=[img_seq_input,opt_seq_input],outputs=[pos_branch, dir_branch, seg_branch] )
 # plot_model(model, to_file='/mnt/c/Users/rootm/x.png', show_shapes=True)
 
-        
-# %%
