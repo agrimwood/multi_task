@@ -113,17 +113,17 @@ pos_loss = "categorical_crossentropy"
 dir_loss = "categorical_crossentropy"
 seg_loss = SparseCategoricalCrossentropy(from_logits=True)
 
-class MyMeanIOU(MeanIoU):
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
-        
-miou = MyMeanIOU(num_classes=3)
-
 # establish distributed processing
 if dist_strat is True:
     strategy = tf.distribute.MirroredStrategy()
     batch_size = batch_size * strategy.num_replicas_in_sync
     with strategy.scope():
+        # metrics must be defined within strategy scope
+        class MyMeanIOU(MeanIoU):
+            def update_state(self, y_true, y_pred, sample_weight=None):
+                return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
+                
+        miou = MyMeanIOU(num_classes=3)
         # create the model
         model = mobnet.LRASPP().build_model() 
         # compile the model
@@ -132,6 +132,12 @@ if dist_strat is True:
             metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
 else:
+    # define metric
+    class MyMeanIOU(MeanIoU):
+        def update_state(self, y_true, y_pred, sample_weight=None):
+            return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
+            
+    miou = MyMeanIOU(num_classes=3)
     # create the model
     model = mobnet.LRASPP().build_model() 
 
