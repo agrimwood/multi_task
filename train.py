@@ -91,66 +91,66 @@ pts = list(set([fl_list[i][0:6] for i in range(len(fl_list))]))
 ######################################################################################
 
 # specify loss functions and metrics so that the final loss is summed in quadrature
-def dc_squared(y_true, y_pred):
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = K.sum(y_true_f * y_pred_f)
-    dice_coef = 1 - (2. * intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
-    return dice_coef
+#def dc_squared(y_true, y_pred):
+#    y_true_f = K.flatten(y_true)
+#    y_pred_f = K.flatten(y_pred)
+#    intersection = K.sum(y_true_f * y_pred_f)
+#    dice_coef = 1 - (2. * intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
+#    return dice_coef
 
-def cc_squared(y_true, y_pred):
-    return categorical_crossentropy(y_true, y_pred)**2
+#def cc_squared(y_true, y_pred):
+#    return categorical_crossentropy(y_true, y_pred)**2
 
 
-epsilon = backend_config.epsilon
-def seg_bc_squared(y_true,y_pred):
-    epsilon_ = constant_op.constant(epsilon(), dtype=y_pred.dtype.base_dtype)
-    y_pred = clip_ops.clip_by_value(y_pred, epsilon_, 1. - epsilon_)
-    bce = y_true * math_ops.log(y_pred + epsilon_)*0.9
-    bce += (1 - y_true) * math_ops.log(1 - y_pred + epsilon_)*1.1
-    return bce**2
+#epsilon = backend_config.epsilon
+#def seg_bc_squared(y_true,y_pred):
+#    epsilon_ = constant_op.constant(epsilon(), dtype=y_pred.dtype.base_dtype)
+#    y_pred = clip_ops.clip_by_value(y_pred, epsilon_, 1. - epsilon_)
+#    bce = y_true * math_ops.log(y_pred + epsilon_)*0.9
+#    bce += (1 - y_true) * math_ops.log(1 - y_pred + epsilon_)*1.1
+#    return bce**2
 
 pos_loss = "categorical_crossentropy"
 dir_loss = "categorical_crossentropy"
 seg_loss = SparseCategoricalCrossentropy(from_logits=True)
 
 # establish distributed processing
-if dist_strat is True:
-    strategy = tf.distribute.MirroredStrategy()
-    batch_size = batch_size * strategy.num_replicas_in_sync
-    with strategy.scope():
-        # metrics must be defined within strategy scope
-        class MyMeanIOU(MeanIoU):
-            def update_state(self, y_true, y_pred, sample_weight=None):
-                return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
-                
-        miou = MyMeanIOU(num_classes=3)
-        # create the model
-        model = mobnet.LRASPP().build_model() 
-        # compile the model
-        model.compile(optimizer=RMSprop(lr=learning_rate), 
-            loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
-            metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
+#if dist_strat is True:
+#    strategy = tf.distribute.MirroredStrategy()
+#    batch_size = batch_size * strategy.num_replicas_in_sync
+#    with strategy.scope():
+#        # metrics must be defined within strategy scope
+#        class MyMeanIOU(MeanIoU):
+#            def update_state(self, y_true, y_pred, sample_weight=None):
+#                return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
+#                
+#        miou = MyMeanIOU(num_classes=3)
+#        # create the model
+#        model = mobnet.LRASPP().build_model() 
+#        # compile the model
+#        model.compile(optimizer=RMSprop(lr=learning_rate), 
+#            loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
+#            metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
+#
+#else:
+# define metric
+class MyMeanIOU(MeanIoU):
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
+        
+miou = MyMeanIOU(num_classes=3)
+# create the model
+model = mobnet.LRASPP(im_dimensions=[img_height, img_width, 3]).build_model() 
 
-else:
-    # define metric
-    class MyMeanIOU(MeanIoU):
-        def update_state(self, y_true, y_pred, sample_weight=None):
-            return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
-            
-    miou = MyMeanIOU(num_classes=3)
-    # create the model
-    model = mobnet.LRASPP().build_model() 
-
-    # compile the model
-    model.compile(optimizer=RMSprop(lr=learning_rate), 
-        loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
-        metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
+# compile the model
+model.compile(optimizer=RMSprop(lr=learning_rate), 
+    loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
+    metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
 # write model graph to png file
-model._layers = [
-    layer for layer in model._layers if isinstance(layer, Layer)
-]
+#model._layers = [
+#    layer for layer in model._layers if isinstance(layer, Layer)
+#]
 plot_model(model, to_file=os.path.join(log_dir, 'mixed_Classifier.png'), show_shapes=True, show_layer_names=True)
 
 # set checkpoints
@@ -173,8 +173,8 @@ for rng in range(epochs):
     # specify k-fold split for this epoch
     df_train = df[~df['pt'].isin(pts[k:k+5])]
     df_val = df[df['pt'].isin(pts[k:k+5])]
-    train_generator = data.us_generator(dataframe=df_train, img_path=img_path, msk_path=msk_path, batch_size=batch_size)
-    validation_generator = data.us_generator(dataframe=df_val, img_path=img_path, msk_path=msk_path, batch_size=batch_size)
+    train_generator = data.us_generator(dataframe=df_train, img_path=img_path, msk_path=msk_path, batch_size=batch_size, imdimensions=imdimensions)
+    validation_generator = data.us_generator(dataframe=df_val, img_path=img_path, msk_path=msk_path, batch_size=batch_size, imdimensions=imdimensions)
     nb_train_samples = df_train.index.size
     nb_validation_samples = df_val.index.size
     if rng==0:
@@ -183,10 +183,10 @@ for rng in range(epochs):
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=nb_train_samples // batch_size,
+        steps_per_epoch=10,#nb_train_samples // batch_size,
         epochs=x+1,
         validation_data=validation_generator,
-        validation_steps=nb_validation_samples // batch_size,
+        validation_steps=6,#nb_validation_samples // batch_size,
         initial_epoch=x)
 
     # record prediction sample
