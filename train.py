@@ -14,6 +14,7 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import clip_ops
 from tensorflow.python.framework import constant_op
 from tensorflow.python.keras import backend_config
+from tensorflow.keras.layers import Layer
 import numpy as np
 import pandas as pd
 import random
@@ -139,6 +140,10 @@ else:
         loss={'prostate_out': pos_loss, 'direction_out': dir_loss, 'segment_out': seg_loss}, 
         metrics={'prostate_out': ['mse'], 'direction_out': ['mse'], 'segment_out': [miou]})
 
+# write model graph to png file
+model._layers = [
+    layer for layer in model._layers if isinstance(layer, Layer)
+]
 plot_model(model, to_file=os.path.join(log_dir, 'mixed_Classifier.png'), show_shapes=True, show_layer_names=True)
 
 # set checkpoints
