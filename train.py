@@ -180,10 +180,10 @@ for rng in range(epochs):
 
     history = model.fit(
         train_generator,
-        steps_per_epoch=3,#nb_train_samples // batch_size,
+        steps_per_epoch=nb_train_samples // batch_size,
         epochs=x+1,
         validation_data=validation_generator,
-        validation_steps=1,#nb_validation_samples // batch_size,
+        validation_steps=nb_validation_samples // batch_size,
         initial_epoch=x)
 
     # record prediction sample
