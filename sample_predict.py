@@ -115,13 +115,8 @@ def mobnet_sample(dataframe, root_dir, imdimensions):
                 image1 = np.concatenate((image1,preproc_im))
             
             # tracking data
-            try:
-                csv_row = dataframe[dataframe.index == slice_name]
-                rotfeatures.append([csv_row.rot_si[0], csv_row.rot_ap[0], csv_row.rot_lr[0]])
-            except:
-                print(slice_name)
-                print(sample.slice[0])
-                print(sample.slice[:-1])
+            csv_row = dataframe[dataframe.index == slice_name]
+            rotfeatures.append([csv_row.rot_si[0], csv_row.rot_ap[0], csv_row.rot_lr[0]])
 
         csv_features = np.array(rotfeatures)
         rsz_features = np.concatenate((csv_features,abs(csv_features)), axis=-1)

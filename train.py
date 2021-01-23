@@ -177,6 +177,9 @@ for rng in range(epochs):
     validation_generator = data.us_generator(dataframe=df_val, img_path=img_path, msk_path=msk_path, batch_size=batch_size)
     nb_train_samples = df_train.index.size
     nb_validation_samples = df_val.index.size
+    if rng==0:
+        print('Training steps per epoch: {}'.format(str(nb_train_samples // batch_size)))
+        print('Validation steps per epoch: {}'.format(str(nb_validation_samples // batch_size)))
 
     history = model.fit(
         train_generator,
