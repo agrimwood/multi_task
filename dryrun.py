@@ -6,7 +6,7 @@ from tensorflow.keras.metrics import mse, MeanIoU
 from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import RMSprop
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, LearningRateScheduler
 from tensorflow.keras.utils import plot_model
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import clip_ops
@@ -21,11 +21,11 @@ import mobnet
 import data
 import sample_predict
 
-epochs = 1000
-log_root = 'C:/Experiments/ICR/IJCARS/output'
+epochs = 1500
+log_root = '/raid/candi/alex/IJCARS_output'
 learning_rate = 1e-4
-root_path = 'C:/Experiments/ICR/IJCARS/IJCARS_data'
-batch_size = 2
+root_path = '/raid/candi/alex/IJCARS_data'
+batch_size = 15
 dist_strat = False
 # autogenerate log directories
 log_dir = os.path.join(log_root, datetime.datetime.now().strftime("%Y%m%d_%H%M%S%f"))
@@ -50,18 +50,19 @@ df['pt'] = pt_list
 pts = list(set([fl_list[i][0:6] for i in range(len(fl_list))]))
 ######################################################################################
 
+#mirrored_strategy = tf.distribute.MirroredStrategy(devices=["/gpu:1", "/gpu:2"])
+#with mirrored_strategy.scope():
 pos_loss = "categorical_crossentropy"
 dir_loss = "categorical_crossentropy"
 seg_loss = SparseCategoricalCrossentropy(from_logits=True)
-
 class MyMeanIOU(MeanIoU):
     def update_state(self, y_true, y_pred, sample_weight=None):
         return super().update_state(tf.argmax(y_true, axis=-1), tf.argmax(y_pred, axis=-1))
         
 miou = MyMeanIOU(num_classes=3)
-
 # create the model
 model = mobnet.LRASPP(im_dimensions=[img_height,img_width,3]).build_model() 
+
 
 # compile the model
 model.compile(optimizer=RMSprop(lr=learning_rate), 
@@ -74,12 +75,22 @@ plot_model(model, to_file=os.path.join(log_dir, 'mixed_Classifier.png'), show_sh
 checkpoint_filepath = os.path.join(log_dir, "model.best.hdf5")  # saves last model
 checkpoint = ModelCheckpoint(checkpoint_filepath, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
 
+# set scheduler callback
+def scheduler(epoch, lr):
+    if epoch < 45:
+        return lr
+    elif epoch < 55:
+        return lr * tf.math.exp(-0.2)
+
+callback = tf.keras.callbacks.LearningRateScheduler(scheduler)
+
 # set csv output
 csv_filepath = os.path.join(log_dir, 'training.log')
 
 # loop through epochs
+val_losses = 1
 k = 0
-x = 0
+nx = 0
 for rng in range(epochs):
     # shuffle patient list and restart k-folding
     if k > len(pts)-7:
@@ -95,15 +106,16 @@ for rng in range(epochs):
     nb_validation_samples = df_val.index.size
 
     history = model.fit(
-        train_generator,
-        steps_per_epoch=20,#steps_per_epoch=nb_train_samples // batch_size,
-        epochs=x+1,
-        validation_data=validation_generator,
-        validation_steps=6,#validation_steps=nb_validation_samples // batch_size,
-        initial_epoch=x)
+        x=train_generator,
+        steps_per_epoch=nb_train_samples // batch_size,
+        epochs=nx+1,
+	validation_data=validation_generator,
+        validation_steps=nb_validation_samples // batch_size,
+        initial_epoch=nx,
+        callbacks=[callback])
 
     # record prediction sample
-    sample_predict.plot_mobnet_sample(model, df, root_path, imdimensions, log_dir, x)
+    sample_predict.plot_mobnet_sample(model, df, root_path, imdimensions, log_dir, nx)
     
     ##write to log file
     hist_df = pd.DataFrame(history.history)
@@ -114,14 +126,18 @@ for rng in range(epochs):
         else:
             hist_df.to_csv(f, header=False, line_terminator='\n')
 
-    ## serialize model to JSON
-    model_json = model.to_json()
-    with open(os.path.join(log_dir, 'lstm_classifier.json'), 'w') as json_file:
-        json_file.write(model_json)
     
-    # serialize weights to HDF5
-    model.save_weights(os.path.join(log_dir, 'lstm_classifier.h5'))
-    print('Saved model to disk: '+ log_dir)
+    if hist_df.val_loss < val_losses:
+        val_losses = hist_df.val_loss
+        ## model to JSON
+        model_json = model.to_json()
+        with open(os.path.join(log_dir, 'lstm_classifier.json'), 'w') as json_file:
+            json_file.write(model_json)
+    
+        # weights to HDF5
+        model.save_weights(os.path.join(log_dir, 'lstm_classifier.h5'))
+        print('Saved model to disk: '+ log_dir)
+
 
     k += 6
-    x += 1
+    nx += 1
